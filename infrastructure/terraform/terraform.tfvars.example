@@ -1,0 +1,11 @@
+# Kubernetes Configuration
+k8s_version    = "1.25"
+enable_private = false
+public_az      = "a"
+private_az     = "b"
+
+# GitHub OIDC Configuration
+# Replace these with your actual GitHub organization/username and repository name
+github_org  = "your-github-org-or-username"
+github_repo = "your-repo-name"
+

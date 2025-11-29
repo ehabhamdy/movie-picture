@@ -2,10 +2,21 @@
 
 This document will guide you through the process of setting up GitHub OIDC authentication with AWS.
 
+## What This Is
+OIDC allows GitHub Actions workflows to authenticate with AWS without storing long-lived access keys. Instead, GitHub generates short-lived tokens that AWS validates, providing better security with minimal workflow changes.
+
+
 ## Prerequisites
 
 - AWS CLI installed and configured with admin permissions
 - Access to your GitHub repository settings
+
+Before moving to the steps, you can run the  script `setup-github-oidc.sh` to automate the setup.
+```bash
+./setup-github-oidc.sh
+```
+
+or follow the steps manually.
 
 ## Step 1: AWS Setup
 
