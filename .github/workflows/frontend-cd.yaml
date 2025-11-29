@@ -9,10 +9,9 @@ on:
   #     - '!frontend/k8s/**'
   workflow_dispatch:
 
-# Required for OIDC authentication
 permissions:
-  id-token: write   # Required to request OIDC token
-  contents: read    # Required to checkout code
+  id-token: write
+  contents: read 
 
 jobs:
   lint:

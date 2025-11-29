@@ -9,8 +9,8 @@ on:
   #     - '!backend/k8s/**'
   workflow_dispatch:
 
-# Required for OIDC authentication
 permissions:
+  # Reference: https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-cloud-providers
   id-token: write   # Required to request OIDC token
   contents: read    # Required to checkout code
 
