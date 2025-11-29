@@ -117,7 +117,7 @@ resource "aws_vpc_endpoint" "ecr-api-endpoint" {
 # ECR Repositories
 ###################
 resource "aws_ecr_repository" "frontend" {
-  name                 = "frontend"
+  name                 = "movie-picture/frontend"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
 
@@ -127,13 +127,175 @@ resource "aws_ecr_repository" "frontend" {
 }
 
 resource "aws_ecr_repository" "backend" {
-  name                 = "backend"
+  name                 = "movie-picture/backend"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
   }
+}
+
+# Get current AWS account ID
+data "aws_caller_identity" "current" {}
+
+# # ECR Repository Policy for Frontend - Allow EKS Node Role to pull images
+# resource "aws_ecr_repository_policy" "frontend_policy" {
+#   repository = aws_ecr_repository.frontend.name
+
+#   policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Sid    = "AllowEKSNodeRole"
+#         Effect = "Allow"
+#         Principal = {
+#           AWS = aws_iam_role.node_group.arn
+#         }
+#         Action = [
+#           "ecr:GetDownloadUrlForLayer",
+#           "ecr:BatchGetImage",
+#           "ecr:BatchCheckLayerAvailability"
+#         ]
+#       }
+#     ]
+#   })
+# }
+
+# # ECR Repository Policy for Backend - Allow EKS Node Role to pull images
+# resource "aws_ecr_repository_policy" "backend_policy" {
+#   repository = aws_ecr_repository.backend.name
+
+#   policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Sid    = "AllowEKSNodeRole"
+#         Effect = "Allow"
+#         Principal = {
+#           AWS = aws_iam_role.node_group.arn
+#         }
+#         Action = [
+#           "ecr:GetDownloadUrlForLayer",
+#           "ecr:BatchGetImage",
+#           "ecr:BatchCheckLayerAvailability"
+#         ]
+#       }
+#     ]
+#   })
+# }
+
+############################
+# GitHub OIDC Configuration
+############################
+# Create OIDC Provider for GitHub Actions
+resource "aws_iam_openid_connect_provider" "github_actions" {
+  url = "https://token.actions.githubusercontent.com"
+
+  client_id_list = [
+    "sts.amazonaws.com",
+  ]
+
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1",
+  ]
+
+  tags = {
+    Name = "github-actions-oidc-provider"
+  }
+}
+
+# Create IAM Role for GitHub Actions
+resource "aws_iam_role" "github_actions" {
+  name = "GitHubActionsRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github_actions.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          }
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/${var.github_repo}:*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "github-actions-role"
+  }
+}
+
+# Create IAM Policy for GitHub Actions
+resource "aws_iam_policy" "github_actions" {
+  name        = "GitHubActionsPolicy"
+  description = "Policy for GitHub Actions to access ECR and EKS"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ECRPermissions"
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:PutImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:DescribeRepositories",
+          "ecr:ListImages",
+          "ecr:DescribeImages"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "EKSPermissions"
+        Effect = "Allow"
+        Action = [
+          "eks:DescribeCluster",
+          "eks:ListClusters",
+          "eks:DescribeNodegroup",
+          "eks:ListNodegroups",
+          "eks:AccessKubernetesApi"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "CloudWatchLogs"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
+        ]
+        Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:*"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "github-actions-policy"
+  }
+}
+
+# Attach Policy to Role
+resource "aws_iam_role_policy_attachment" "github_actions" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = aws_iam_policy.github_actions.arn
 }
 
 ################
@@ -256,75 +418,75 @@ data "aws_iam_policy_document" "assume_role_policy" {
 # CodeBuild Resources
 ######################
 # Create a CodeBuild project
-resource "aws_codebuild_project" "codebuild" {
-  name          = "udacity"
-  description   = "Udacity CodeBuild project"
-  service_role  = aws_iam_role.codebuild.arn
-  build_timeout = 60
-  artifacts {
-    type = "NO_ARTIFACTS"
-  }
+# resource "aws_codebuild_project" "codebuild" {
+#   name          = "udacity"
+#   description   = "Udacity CodeBuild project"
+#   service_role  = aws_iam_role.codebuild.arn
+#   build_timeout = 60
+#   artifacts {
+#     type = "NO_ARTIFACTS"
+#   }
 
-  environment {
-    compute_type                = "BUILD_GENERAL1_SMALL"
-    image                       = "aws/codebuild/standard:5.0"
-    type                        = "LINUX_CONTAINER"
-    image_pull_credentials_type = "CODEBUILD"
-    privileged_mode             = true
-  }
+#   environment {
+#     compute_type                = "BUILD_GENERAL1_SMALL"
+#     image                       = "aws/codebuild/standard:5.0"
+#     type                        = "LINUX_CONTAINER"
+#     image_pull_credentials_type = "CODEBUILD"
+#     privileged_mode             = true
+#   }
 
-  source {
-    type            = "GITHUB"
-    location        = "https://github.com/your-org/your-repo"
-    git_clone_depth = 1
-    buildspec       = "buildspec.yml"
-  }
+#   source {
+#     type            = "GITHUB"
+#     location        = "https://github.com/your-org/your-repo"
+#     git_clone_depth = 1
+#     buildspec       = "buildspec.yml"
+#   }
 
-  cache {
-    type = "NO_CACHE"
-  }
-}
+#   cache {
+#     type = "NO_CACHE"
+#   }
+# }
 
-# Create the Codebuild Role
-resource "aws_iam_role" "codebuild" {
-  name = "codebuild-role"
+# # Create the Codebuild Role
+# resource "aws_iam_role" "codebuild" {
+#   name = "codebuild-role"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "codebuild.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-      }
-    ]
-  })
-}
+#   assume_role_policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Effect = "Allow"
+#         Principal = {
+#           Service = "codebuild.amazonaws.com"
+#         }
+#         Action = "sts:AssumeRole"
+#       }
+#     ]
+#   })
+# }
 
-# Attach the IAM policy to the codebuild role
-resource "aws_iam_role_policy_attachment" "codebuild" {
-  policy_arn = "arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess"
-  role       = aws_iam_role.codebuild.name
-}
+# # Attach the IAM policy to the codebuild role
+# resource "aws_iam_role_policy_attachment" "codebuild" {
+#   policy_arn = "arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess"
+#   role       = aws_iam_role.codebuild.name
+# }
 
-####################
-# Github Action role
-####################
-resource "aws_iam_user" "github_action_user" {
-  name = "github-action-user"
-}
+# ####################
+# # Github Action role
+# ####################
+# resource "aws_iam_user" "github_action_user" {
+#   name = "github-action-user"
+# }
 
-resource "aws_iam_user_policy" "github_action_user_permission" {
-  user   = aws_iam_user.github_action_user.name
-  policy = data.aws_iam_policy_document.github_policy.json
-}
+# resource "aws_iam_user_policy" "github_action_user_permission" {
+#   user   = aws_iam_user.github_action_user.name
+#   policy = data.aws_iam_policy_document.github_policy.json
+# }
 
-data "aws_iam_policy_document" "github_policy" {
-  statement {
-    effect    = "Allow"
-    actions   = ["ecr:*", "eks:*", "ec2:*", "iam:GetUser"]
-    resources = ["*"]
-  }
-}
+# data "aws_iam_policy_document" "github_policy" {
+#   statement {
+#     effect    = "Allow"
+#     actions   = ["ecr:*", "eks:*", "ec2:*", "iam:GetUser"]
+#     resources = ["*"]
+#   }
+# }
