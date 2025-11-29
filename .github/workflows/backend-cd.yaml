@@ -1,9 +1,12 @@
 name: Backend Continuous Deployment
 
 on:
-  push:
-    branches:
-      - main
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - 'backend/**'
+  #     - '!backend/k8s/**'
   workflow_dispatch:
 
 jobs:

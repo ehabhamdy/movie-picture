@@ -5,17 +5,17 @@ on:
     branches:
       - main
     paths:
-      - 'src/**'
-      - 'public/**'
-      - 'package*.json'
-      - 'Dockerfile'
-      - '.github/workflows/frontend-ci.yaml'
+      - 'frontend/**'
+      - '!frontend/k8s/**'
   workflow_dispatch:
 
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     
     steps:
       - name: Checkout code
@@ -26,6 +26,7 @@ jobs:
         with:
           node-version: 18
           cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
       
       - name: Install dependencies
         run: npm ci
@@ -36,6 +37,9 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     
     steps:
       - name: Checkout code
@@ -46,6 +50,7 @@ jobs:
         with:
           node-version: 18
           cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
       
       - name: Install dependencies
         run: npm ci
@@ -64,5 +69,6 @@ jobs:
       
       - name: Build Docker image
         run: |
-          docker build --build-arg=REACT_APP_MOVIE_API_URL=http://localhost:5000 --tag=mp-frontend:latest .
+          docker build --build-arg=REACT_APP_MOVIE_API_URL=http://localhost:5000 --tag=mp-frontend:latest ./frontend
+
 

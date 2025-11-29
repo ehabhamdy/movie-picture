@@ -1,16 +1,12 @@
 name: Frontend Continuous Deployment
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'package*.json'
-      - 'Dockerfile'
-      - 'k8s/**'
-      - '.github/workflows/frontend-cd.yaml'
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - 'frontend/**'
+  #     - '!frontend/k8s/**'
   workflow_dispatch:
 
 jobs:
