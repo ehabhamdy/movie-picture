@@ -82,13 +82,26 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
       
+      - name: Get Backend LoadBalancer URL
+        id: get-backend-url
+        run: |
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
+          BACKEND_LB=$(kubectl get service backend -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || kubectl get service backend -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
+          if [ -z "$BACKEND_LB" ]; then
+            echo "ERROR: Backend LoadBalancer not found!"
+            exit 1
+          fi
+          echo "backend_url=http://${BACKEND_LB}" >> $GITHUB_OUTPUT
+          echo "Backend URL: http://${BACKEND_LB}"
+      
       - name: Build, tag, and push image to Amazon ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_FRONTEND_REPO }}
           IMAGE_TAG: ${{ github.sha }}
+          BACKEND_URL: ${{ steps.get-backend-url.outputs.backend_url }}
         run: |
-          docker build --build-arg=REACT_APP_MOVIE_API_URL=http://localhost:5000 --tag=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./frontend
+          docker build --build-arg=REACT_APP_MOVIE_API_URL=$BACKEND_URL --tag=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./frontend
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
   deploy:
