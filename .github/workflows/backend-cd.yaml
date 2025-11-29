@@ -13,6 +13,9 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
 
     steps:
       - name: Checkout code
@@ -38,6 +41,9 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
 
     steps:
       - name: Checkout code
@@ -86,7 +92,7 @@ jobs:
           ECR_REPOSITORY: ${{ secrets.ECR_BACKEND_REPO }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -t $ECR_REPOSITORY:$IMAGE_TAG ./backend
           docker push $ECR_REPOSITORY:$IMAGE_TAG
 
   deploy:
@@ -119,7 +125,7 @@ jobs:
           ECR_REPOSITORY: ${{ secrets.ECR_BACKEND_REPO }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          cd k8s
+          cd backend/k8s
           kustomize edit set image backend=$ECR_REPOSITORY:$IMAGE_TAG
           kustomize build | kubectl apply -f -
 
