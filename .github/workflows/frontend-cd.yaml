@@ -1,12 +1,12 @@
 name: Frontend Continuous Deployment
 
 on:
-  # push:
-  #   branches:
-  #     - main
-  #   paths:
-  #     - 'frontend/**'
-  #     - '!frontend/k8s/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '!frontend/k8s/**'
   workflow_dispatch:
 
 permissions:
